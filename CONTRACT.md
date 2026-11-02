@@ -94,7 +94,7 @@ The host sends its saved values with `SET` after every connect.
 | FC-51 OUT (LOW = part present) | 18 |
 | DS18B20 DQ (4.7 kΩ pull-up to 3V3) | 4 |
 | MG996R signal (via 330 Ω) | 13 |
-| Belt relay IN (active LOW: LOW = run, released/INPUT = stop) | 26 |
+| Belt relay IN (active HIGH: HIGH = run, LOW = stop) | 26 |
 
 ## 4. Vision service — `127.0.0.1:8765`
 
