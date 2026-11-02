@@ -30,6 +30,8 @@ Everything runs **on one laptop, offline**. No cloud, no internet, no data leave
                  └──────────────────────────────────────────────────────────────────┘
 ```
 
+![NAZAR Console, the operator screen (demo data)](img/console.png)
+
 ## One washer, step by step
 
 | Time | What happens | Who |
