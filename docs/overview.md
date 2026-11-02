@@ -11,7 +11,7 @@
 1. **Sees every part.** A camera photographs each washer as it stops under a light tunnel. An anomaly-detection model, trained only on good washers, answers **PASS**, **HOLD** (unsure — a person checks) or **REJECT**.
 2. **Acts on it.** A rejected washer is kicked off the belt by a servo gate. An unsure one stops the line until the operator presses *Resume*.
 3. **Watches the machine at the same time.** Vibration, motor current, motor temperature and tunnel light are logged with every inspection.
-4. **Finds the cause.** A root-cause agent compares the defect rate when the machine is normal vs abnormal ("rejects are 6× higher while the motor shakes"), proves it statistically, and drafts an **8D report** in English or Hindi with a local language model.
+4. **Finds the cause.** A root-cause agent compares the defect rate when the machine is normal vs abnormal ("rejects are 6× higher while the motor shakes"), proves it statistically, and drafts an **8D report** in English with a local language model.
 5. **Proves the fix.** After the team fixes the cause, NAZAR compares before vs after.
 
 Everything runs **on one laptop, offline**. No cloud, no internet, no data leaves the factory.
@@ -69,7 +69,7 @@ How the parts talk is fixed in **CONTRACT.md** in this repo.
 1. Run 15–20 good washers: steady PASS, quiet sensors.
 2. Put in two damaged washers: REJECT with a heatmap on the damage; the gate kicks them off. One borderline part: HOLD, the line stops, operator checks, *Resume*.
 3. **Loosen the motor mount.** Vibration tile goes amber/red; rejects and holds rise.
-4. Open **NAZAR Agent · 8D**: the agent shows rejects are several times higher while the motor shakes, with the p-value, and drafts the 8D (switch to Hindi to show it).
+4. Open **NAZAR Agent · 8D**: the agent shows rejects are several times higher while the motor shakes, with the p-value, and drafts the 8D report.
 5. Tighten the mount, press **Mark fix applied**, run more washers: the before/after table proves the fix.
 
 ## Team Parakh
