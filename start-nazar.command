@@ -8,4 +8,4 @@ for s in "nazar-vision/Start Vision.command" "nazar-agent/Start Agent.command"; 
 done
 APP="$ROOT/nazar-console/build/NAZAR Console.app"
 [[ -d /Applications/"NAZAR Console.app" ]] && APP=/Applications/"NAZAR Console.app"
-if [[ -d "$APP" ]]; then open "$APP"; else echo "console app not built: run nazar-console/build.sh"; fi
+if [[ -d "$APP" ]]; then open "$APP"; else echo "console app not built: run nazar-console/app/build.sh"; fi
