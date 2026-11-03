@@ -31,7 +31,7 @@ The host ignores lines that are not valid JSON (boot ROM noise) and types it doe
 | `vib`, `vpk` | g | MPU-6050 at 200 Hz: RMS and peak of (\|a\| − slow average of \|a\|) over the last 100 ms |
 | `lux` | lx | BH1750 light level in the tunnel |
 | `temp` | °C | DS18B20 on the motor can (read ~1/s, last value repeated) |
-| `ir` | 0/1 | FC-51: 1 while a part is in front of it (20 ms debounce) |
+| `ir` | 0/1 | FC-51: 1 while a part is in front of it (20 ms debounce). With `cam 1` it is only shown, never counted. |
 | `parts`, `rej` | count | ESP32 counters since boot (they reset when the board reboots; the host keeps its own totals) |
 | `gate` | 0/1 | 1 while the reject gate is open |
 | `belt` | 0/1 | 1 while the relay lets the belt run |
@@ -43,8 +43,8 @@ The host ignores lines that are not valid JSON (boot ROM noise) and types it doe
 
 | Message | When |
 |---|---|
-| `{"t":"hello","fw":"2.0.0","sensors":{"ina219":true,"mpu6050":true,"bh1750":false,"ds18b20":true},"cfg":{...}}` | At boot, on `PING`, and whenever a sensor appears or disappears. `cfg` = current timing config (§2.2). |
-| `{"t":"part","n":18}` | Part `n` passed the IR sensor. |
+| `{"t":"hello","fw":"2.1.0","sensors":{"ina219":true,"mpu6050":true,"bh1750":false,"ds18b20":true},"cfg":{...}}` | At boot, on `PING`, and whenever a sensor appears or disappears. `cfg` = current timing config (§2.2). |
+| `{"t":"part","n":18}` | Part `n` passed the IR sensor (`cam 0`) or the console camera sent `SEEN` for it (`cam 1`). |
 | `{"t":"inspect","n":18}` | Part `n` is now **stopped under the camera** (belt off, `mode:"INSPECT"`). Host should take the photo. |
 | `{"t":"go","n":18,"res":"pass"}` | Belt restarted after inspection. `res` = `pass`, `reject`, `hold-released`, `timeout` (no verdict in `wait_ms`). |
 | `{"t":"gate","n":18}` | Gate fired for part `n`. |
@@ -62,6 +62,7 @@ Plain text, one command per line, case-insensitive.
 | Command | Effect |
 |---|---|
 | `PING` | → `pong` + `hello` |
+| `SEEN` | `cam 1` only (fw 2.1+): the console camera sees a whole washer under it now → `part` + `inspect` at once, belt off. Refused (`err`) with `cam 0`, when the belt is not running in RUN, or while a part is already on its way. |
 | `PASS` | Verdict for the part under the camera: belt restarts after `dwell_ms` has passed since the stop. |
 | `FAIL` | Verdict REJECT: belt restarts, gate fires after `gate_ms` of belt **running** time. |
 | `HOLD` | Line goes `mode:"HOLD"`, belt stays off until `RESUME`. Used for an unsure part or by the operator. |
@@ -77,12 +78,13 @@ Plain text, one command per line, case-insensitive.
 
 | Key | Default | Meaning |
 |---|---|---|
-| `stop_ms` | 150 | After the IR edge, belt runs this long so the washer is centred under the camera, then stops. |
+| `stop_ms` | 150 | `cam 0`: after the IR edge, belt runs this long so the washer is centred under the camera, then stops. |
 | `dwell_ms` | 1200 | Minimum stop time under the camera. |
 | `wait_ms` | 5000 | No verdict by then → `go` with `res:"timeout"`, part passes. The line never waits forever on the AI. |
 | `gate_ms` | 800 | Belt running time from restart until the gate fires for a FAIL. |
 | `gate_open_ms` | 600 | How long the gate stays open. |
 | `stops` | 1 | 1 = stop-and-inspect, 0 = belt never stops for inspection (continuous). |
+| `cam` | 1 | Part trigger (fw 2.1+). 1 = the console camera finds each washer and sends `SEEN`; the FC-51 is ignored. 0 = the FC-51 IR sensor starts each part. Same wiring either way. |
 
 The host sends its saved values with `SET` after every connect.
 
@@ -104,6 +106,7 @@ Python standard library HTTP server. Every response is JSON with `Access-Control
 |---|---|---|
 | `GET /health` | — | `{"ok":true,"model":"patchcore-wrn50","hold":0.33,"reject":0.44,"bank":4096,"version":"2.0.0"}` |
 | `POST /inspect` (optional `?hold=&reject=` overrides) | JPEG or PNG bytes | `{"ok":true,"verdict":"PASS"\|"HOLD"\|"REJECT"\|"NO_PART","score":0.37,"hold":0.33,"reject":0.44,"ms":52,"crop":"<base64 PNG>","heatmap":"<base64 PNG>","box":[x,y,w,h]}` |
+| `POST /locate` | JPEG or PNG bytes (640 px is enough) | Camera part trigger, washer finder only (no AI, ~3 ms at 640 px): `{"ok":true,"found":true,"w":640,"h":480,"cx":304.5,"cy":240.2,"r":37.2,"ms":3}`. A washer cut by the frame edge is not found. |
 | `POST /capture?label=good\|defect&kind=scratch` | JPEG or PNG bytes | Saves to `data/capture/<label>/…`; `{"ok":true,"saved":"data/capture/good/…jpg"}` |
 
 `NO_PART` means no washer was found; it is **never** treated as a defect.
