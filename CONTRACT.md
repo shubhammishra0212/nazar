@@ -33,7 +33,7 @@ The host ignores lines that are not valid JSON (boot ROM noise) and types it doe
 | `temp` | °C | DS18B20 on the motor can (read ~1/s, last value repeated) |
 | `ir` | 0/1 | FC-51: 1 while a part is in front of it (20 ms debounce). With `cam 1` it is only shown, never counted. |
 | `parts`, `rej` | count | ESP32 counters since boot (they reset when the board reboots; the host keeps its own totals) |
-| `gate` | 0/1 | 1 while the reject gate is open |
+| `gate` | 0/1 | 1 while the arm is across the belt (stop gate: holding a reject; kick: out) |
 | `belt` | 0/1 | 1 while the relay lets the belt run |
 | `mode` | text | `RUN`, `INSPECT` (part stopped under camera, waiting for a verdict), `HOLD`, `STOP` |
 
@@ -43,7 +43,7 @@ The host ignores lines that are not valid JSON (boot ROM noise) and types it doe
 
 | Message | When |
 |---|---|
-| `{"t":"hello","fw":"2.1.0","sensors":{"ina219":true,"mpu6050":true,"bh1750":false,"ds18b20":true},"cfg":{...}}` | At boot, on `PING`, and whenever a sensor appears or disappears. `cfg` = current timing config (§2.2). |
+| `{"t":"hello","fw":"2.2.0","sensors":{"ina219":true,"mpu6050":true,"bh1750":false,"ds18b20":true},"cfg":{...}}` | At boot, on `PING`, and whenever a sensor appears or disappears. `cfg` = current timing config (§2.2). |
 | `{"t":"part","n":18}` | Part `n` passed the IR sensor (`cam 0`) or the console camera sent `SEEN` for it (`cam 1`). |
 | `{"t":"inspect","n":18}` | Part `n` is now **stopped under the camera** (belt off, `mode:"INSPECT"`). Host should take the photo. |
 | `{"t":"go","n":18,"res":"pass"}` | Belt restarted after inspection. `res` = `pass`, `reject`, `hold-released`, `timeout` (no verdict in `wait_ms`). |
@@ -64,12 +64,13 @@ Plain text, one command per line, case-insensitive.
 | `PING` | → `pong` + `hello` |
 | `SEEN` | `cam 1` only (fw 2.1+): the console camera sees a whole washer under it now → `part` + `inspect` at once, belt off. Refused (`err`) with `cam 0`, when the belt is not running in RUN, or while a part is already on its way. |
 | `PASS` | Verdict for the part under the camera: belt restarts after `dwell_ms` has passed since the stop. |
-| `FAIL` | Verdict REJECT: belt restarts, gate fires after `gate_ms` of belt **running** time. |
+| `FAIL` | Verdict REJECT: belt restarts, the arm swings across after `gate_ms` of belt **running** time. Stop gate (`kick 0`): it stays across, so the reject is stopped against it, until the next good part restarts the belt (`go` pass / timeout / hold-released) or `RELEASE`. |
 | `HOLD` | Line goes `mode:"HOLD"`, belt stays off until `RESUME`. Used for an unsure part or by the operator. |
 | `RESUME` | Leave HOLD. If a part was held under the camera it is released as `hold-released` (no gate). |
 | `STOP` | Operator stop: `mode:"STOP"`, belt off. Inspection and gate timers freeze. |
 | `START` | Leave STOP, continue exactly where it was. |
-| `REJECT` | Fire the gate once, now (manual test). |
+| `REJECT` | Swing the arm across now (manual test). Stop gate: stays until `RELEASE`; kick: back after `gate_open_ms`. |
+| `RELEASE` | Park the arm now: washers pass (fw 2.2+). |
 | `BELT 1` / `BELT 0` | Manual belt on/off, only honoured in `STOP` mode (bring-up). |
 | `RESET` | Counters to 0. |
 | `SET <key> <int>` | Change timing config (§2.2). → `ack` + `hello` with new `cfg`. |
@@ -82,9 +83,12 @@ Plain text, one command per line, case-insensitive.
 | `dwell_ms` | 1200 | Minimum stop time under the camera. |
 | `wait_ms` | 5000 | No verdict by then → `go` with `res:"timeout"`, part passes. The line never waits forever on the AI. |
 | `gate_ms` | 800 | Belt running time from restart until the gate fires for a FAIL. |
-| `gate_open_ms` | 600 | How long the gate stays open. |
+| `gate_open_ms` | 600 | Kick only: how long the arm stays out (belt running time; clock time for `REJECT`). |
 | `stops` | 1 | 1 = stop-and-inspect, 0 = belt never stops for inspection (continuous). |
 | `cam` | 1 | Part trigger (fw 2.1+). 1 = the console camera finds each washer and sends `SEEN`; the FC-51 is ignored. 0 = the FC-51 IR sensor starts each part. Same wiring either way. |
+| `kick` | 0 | Reject gate (fw 2.2+). 0 = stop gate: the arm stays across the belt and holds the reject until the next good part. 1 = kick out and back. |
+| `park_deg` | 0 | Servo angle with the arm parked along the rail (washers pass), 0..180. |
+| `block_deg` | 90 | Servo angle with the arm square across the belt, 0..180. |
 
 The host sends its saved values with `SET` after every connect.
 
